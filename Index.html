@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transcript Studio & AGLE Automation Hub</title>
+<style>
+:root {
+  --bg: #f5f6f8; --card: #ffffff; --ink: #14181f; --muted: #596273;
+  --line: #dde1e8; --accent: #1d4ed8; --accent-ink: #ffffff; --accent-soft: #e8efff;
+  --ok: #157f3b; --warn: #a85a07; --bad: #b42318; --info: #3b5bdb; --field: #ffffff; --radius: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1217; --card: #161b22; --ink: #e7eaf0; --muted: #98a2b3;
+    --line: #28303b; --accent: #6b9bff; --accent-ink: #0a1020; --accent-soft: #1a2740;
+    --ok: #4cc27a; --warn: #f0a24a; --bad: #ff7b72; --info: #8da7ff; --field: #0f141b;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, sans-serif; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 16px 56px; }
+header.top { padding: 28px 0 18px; display: flex; flex-direction: column; gap: 8px; }
+header.top h1 { margin: 0; font-size: 26px; }
+header.top p { margin: 0; color: var(--muted); font-size: 14px; }
+.nav-tabs { display: flex; gap: 8px; margin: 16px 0; border-bottom: 1px solid var(--line); padding-bottom: 8px; overflow-x: auto; }
+.tab-btn { padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--muted); font-weight: 600; cursor: pointer; white-space: nowrap; }
+.tab-btn.active { background: var(--accent-soft); color: var(--accent); }
+.grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+@media (min-width: 980px) { .grid { grid-template-columns: 1fr 1fr; } .span2 { grid-column: 1 / -1; } }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+.card h2 { margin: 0 0 4px; font-size: 16px; display: flex; align-items: center; gap: 10px; }
+.card h2 .n { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 700; }
+.card .sub { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 5px; }
+.row { display: grid; gap: 12px; grid-template-columns: 1fr; }
+@media (min-width: 560px) { .row.two { grid-template-columns: 1fr 1fr; } .row.three { grid-template-columns: 1fr 1fr 1fr; } }
+input[type=text], input[type=number], select, textarea { width: 100%; background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; font: inherit; }
+textarea { resize: vertical; min-height: 140px; }
+.hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.hint.bad { color: var(--bad); } .hint.ok { color: var(--ok); }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+button { font: inherit; font-weight: 600; border-radius: 8px; padding: 9px 14px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.big { padding: 12px 20px; font-size: 15px; }
+.badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.checks { display: grid; gap: 6px; margin-top: 6px; }
+.checks label { display: flex; align-items: flex-start; gap: 9px; font-weight: 500; margin: 0; font-size: 14px; }
+table.spk { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.spk th { font-size: 12px; text-align: left; color: var(--muted); padding: 4px 6px; }
+table.spk td { padding: 5px 6px; border-top: 1px solid var(--line); }
+.qa { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.qa li { display: flex; gap: 9px; font-size: 14px; padding: 8px 10px; border-radius: 8px; background: var(--bg); }
+.qa .i { flex: none; width: 18px; text-align: center; font-weight: 700; }
+.qa .ok .i { color: var(--ok); } .qa .warn .i { color: var(--warn); } .qa .bad .i { color: var(--bad); }
+#out { font-family: "Times New Roman", Times, serif; font-size: 15px; line-height: 1.7; min-height: 360px; white-space: pre-wrap; }
+.timer { font: 600 22px/1 monospace; letter-spacing: .02em; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 10; }
+.toast.show { opacity: .96; }
+footer { margin-top: 24px; color: var(--muted); font-size: 12.5px; text-align: center; }
+.inline-input-btn { display: flex; gap: 8px; align-items: center; }
+.guide-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+.guide-card h3 { margin: 0 0 8px; font-size: 15px; color: var(--accent); }
+.guide-card ul { margin: 0; padding-left: 20px; font-size: 13.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <h1>Transcript Studio & AGLE Hub</h1>
+  <p>Formats transcripts to house style with realistic millisecond timestamps, auto 7-word topic generation, and AGLE/Verbit rule checking.</p>
+</header>
+<nav class="nav-tabs">
+  <button class="tab-btn active" onclick="showTab('editor', event)">📝 Transcript Studio Editor</button>
+  <button class="tab-btn" onclick="showTab('guidelines', event)">📖 General Guidelines Rules</button>
+</nav>
+
+<div id="tab-editor" class="tab-content">
+  <div class="grid">
+    <section class="card">
+      <h2><span class="n">1</span>Job details</h2>
+      <p class="sub">Header parameters and transcript house rules.</p>
+      <label for="topic">Transcription Job (seven-word topic)</label>
+      <div class="inline-input-btn">
+        <input type="text" id="topic" placeholder="e.g. Sequoia China on Technology Trends and Opportunities" autocomplete="off">
+        <button type="button" id="btnGenTitle" style="white-space:nowrap;">Auto Title</button>
+      </div>
+      <div class="hint" id="topicHint">0 words</div>
+      <div class="row two">
+        <div><label for="audio">Audio length (m:ss or h:mm:ss)</label><input type="text" id="audio" placeholder="5:08" autocomplete="off"></div>
+        <div><label for="date">Date (DD/MM/YYYY)</label><input type="text" id="date" placeholder="DD/MM/YYYY" autocomplete="off"></div>
+      </div>
+      <div class="row two">
+        <div><label for="by">Transcribed By</label><input type="text" id="by" value="Godhand Benson" autocomplete="off"></div>
+        <div><label for="client">Client</label><input type="text" id="client" value="Eagle Web" autocomplete="off"></div>
+      </div>
+      <div class="row two">
+        <div>
+          <label for="project">Project type</label>
+          <select id="project">
+            <optgroup label="Strict verbatim"><option>Legal dictation</option><option>Legal proceedings</option><option selected>All</option><option>Law</option></optgroup>
+            <optgroup label="Edited verbatim"><option>Speech</option><option>Lectures</option><option>Zoom meeting</option></optgroup>
+          </select>
+        </div>
+        <div>
+          <label for="mode">Rule set override</label>
+          <select id="mode"><option value="auto">Auto from project</option><option value="strict">Strict verbatim</option><option value="edited">Edited verbatim</option></select>
+          <div class="hint">Applying: <span class="badge" id="modeBadge">Strict verbatim</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="n">2</span>Raw transcript input</h2>
+      <p class="sub">Paste text with speaker & timestamp tags, or upload an SRT/TXT file.</p>
+      <textarea id="raw" spellcheck="false" placeholder="Speaker 1&#10;(0:00) First sentence. (0:04) Second sentence.&#10;Speaker 2&#10;(0:09) A reply."></textarea>
+      <div class="btns">
+        <button id="btnDetect" class="primary">Detect speakers</button>
+        <button id="btnSample">Load sample</button>
+        <label class="btn-file" style="margin:0"><input type="file" id="file" accept=".txt,.srt,text/plain" hidden><button type="button" id="btnFile">Open file</button></label>
+        <button id="btnClear">Clear</button>
+      </div>
+      <div class="hint" id="rawHint"></div>
+    </section>
+
+    <section class="card">
+      <h2><span class="n">3</span>Speaker mapping</h2>
+      <p class="sub">Configure genders and custom speaker labels.</p>
+      <div id="spkBox"><div class="hint">Click “Detect speakers” after pasting a transcript.</div></div>
+    </section>
+
+    <section class="card">
+      <h2><span class="n">4</span>Formatting options</h2>
+      <p class="sub">Configure timestamp calculations and style engine rules.</p>
+      <div class="checks">
+        <label><input type="checkbox" id="oContinuous" checked><span>Continuous timestamps</span></label>
+        <label><input type="checkbox" id="oRandomMs" checked><span>Randomize millisecond values (.236 instead of .000)</span></label>
+        <label><input type="checkbox" id="oNumbers" checked><span>Apply numeric format rules (0-9 written, 10+ digits, %, currency)</span></label>
+        <label><input type="checkbox" id="oDigits" checked><span>Spell single digits zero to nine</span></label>
+        <label><input type="checkbox" id="oEllipsis" checked><span>Auto-insert ellipsis (...)</span></label>
+        <label><input type="checkbox" id="oQuoteUI" checked><span>Capitalize & double quote UI elements (press "Upload")</span></label>
+      </div>
+      <div class="row two">
+        <div><label for="maxBlock">Merge blocks up to (seconds)</label><input type="number" id="maxBlock" value="0" min="0"></div>
+      </div>
+      <label for="corr">Vocabulary Corrections (wrong => right)</label>
+      <textarea id="corr" style="min-height:90px" spellcheck="false" placeholder="Snick => SNCC"></textarea>
+    </section>
+
+    <section class="card span2">
+      <div class="btns" style="margin-top:0">
+        <button id="btnGo" class="primary big">Generate transcript</button>
+        <span class="hint" style="align-self:center" id="goHint"></span>
+      </div>
+    </section>
+
+    <section class="card span2" id="card-out">
+      <h2><span class="n">5</span>Output & QA validation</h2>
+      <p class="sub">Review formatted transcript output, QA compliance, and download options.</p>
+      <div class="stats" id="stats"></div>
+      <ul class="qa" id="qa"></ul>
+      <label for="out" style="margin-top:16px">Formatted transcript</label>
+      <textarea id="out" spellcheck="false" placeholder="Formatted transcript output will appear here..."></textarea>
+      <div class="btns">
+        <button id="btnCheck">Re-check QA</button>
+        <button id="btnCopyRich" class="primary">Copy for Google Docs</button>
+        <button id="btnCopy">Copy plain text</button>
+        <button id="btnDoc">Download Word (.doc)</button>
+        <button id="btnTxt">Download .txt</button>
+      </div>
+      <details id="logWrap"><summary>Transformation Log (<span id="logCount">0</span>)</summary><pre class="log" id="log"></pre></details>
+    </section>
+
+    <section class="card span2" id="card-audio">
+      <h2><span class="n">6</span>Audio player & timestamp checker</h2>
+      <div class="row three">
+        <div><label for="audioFile">Audio or video file</label><input type="file" id="audioFile" accept="audio/*,video/*"></div>
+        <div>
+          <label for="rate">Playback Speed</label>
+          <select id="rate"><option value="0.75">0.75x</option><option value="1" selected>1.0x</option><option value="1.25">1.25x</option><option value="1.5">1.5x</option></select>
+        </div>
+        <div>
+          <label>Current time</label>
+          <div class="timer" id="clock">00:00:00.000</div>
+          <div class="btns" style="margin-top:8px"><button id="btnClock">Copy timestamp</button></div>
+        </div>
+      </div>
+      <audio id="player" controls style="width:100%;margin-top:14px"></audio>
+    </section>
+  </div>
+</div>
+
+<div id="tab-guidelines" class="tab-content" style="display:none;">
+  <div class="grid">
+    <section class="card span2">
+      <h2><span class="n">📖</span>AGLE General Guidelines Cheat Sheet</h2>
+      <div class="grid">
+        <div class="guide-card"><h3>1. Filler Words</h3><ul><li>Fillers (um, uh, like) are ONLY allowed in Verbatim jobs.</li><li>In Clean/Edited Verbatim, remove all fillers.</li></ul></div>
+        <div class="guide-card"><h3>2. UI Buttons</h3><ul><li>Capitalize and quote interface buttons (press "Upload").</li></ul></div>
+        <div class="guide-card"><h3>3. Numbers & Currency</h3><ul><li>0 to 9 written as words; 10+ as digits.</li><li>Format currency as $15, €27. Percentage as 5%.</li></ul></div>
+        <div class="guide-card"><h3>4. Headers</h3><ul><li>Speaker tags must be Male_1: or Female_1:.</li><li>Topic headers target exactly 7 words.</li></ul></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<footer>Transcript Studio Engine</footer>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+function showTab(tabName, evt) {
+  document.querySelectorAll('.tab-content').forEach(function(el) { el.style.display = 'none'; });
+  document.querySelectorAll('.tab-btn').forEach(function(btn) { btn.classList.remove('active'); });
+  document.getElementById('tab-' + tabName).style.display = 'block';
+  evt.currentTarget.classList.add('active');
+}
+
+var STRICT_PROJECTS = ['Legal dictation','Legal proceedings','All','Law'];
+function modeFor(project, override) {
+  if (override === 'strict' || override === 'edited') return override;
+  return STRICT_PROJECTS.indexOf(project) > -1 ? 'strict' : 'edited';
+}
+function pad(n, w) { return String(n).padStart(w || 2, '0'); }
+function fmtTs(ms) {
+  ms = Math.max(0, Math.round(ms));
+  var h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000), s = Math.floor((ms % 60000) / 1000), r = ms % 1000;
+  return pad(h) + ':' + pad(m) + ':' + pad(s) + '.' + pad(r, 3);
+}
+function parseTsStr(str) {
+  var m = /^(\d{1,2}):(\d{2}):(\d{2})[.,](\d{1,3})$/.exec(str.trim());
+  if (!m) return null;
+  return ((+m[1]) * 3600 + (+m[2]) * 60 + (+m[3])) * 1000 + parseInt((m[4] + '00').slice(0, 3), 10);
+}
+function parseAudioLength(str) {
+  str = (str || '').trim(); if (!str) return 0;
+  var p = str.split(':').map(function(x) { return parseInt(x, 10); });
+  if (p.some(isNaN)) return 0;
+  if (p.length === 1) return p[0] * 60000;
+  if (p.length === 2) return (p[0] * 60 + p[1]) * 1000;
+  return (p[0] * 3600 + p[1] * 60 + p[2]) * 1000;
+}
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+function generateSevenWordTitle(rawText) {
+  if (!rawText || !rawText.trim()) return "Discussion on Key Business and Industry Insights";
+  var cleaned = rawText.replace(/Speaker\s*\d+/gi, ' ').replace(/\(\d+:\d+(?::\d+)?\)/g, ' ').replace(/[^a-zA-Z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  var stopWords = new Set(['the','and','a','to','of','in','i','is','that','it','for','you','was','with','on','as','have','be','this','are','or','by','not','at','from','we','an','your']);
+  var words = cleaned.split(' ').filter(function(w) { return w.length > 2 && !stopWords.has(w.toLowerCase()); });
+  if (words.length < 3) return "Comprehensive Transcript Analysis and Overview Summary Report";
+  var freq = {}; words.forEach(function(w) { var cap = w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); freq[cap] = (freq[cap] || 0) + 1; });
+  var sorted = Object.keys(freq).sort(function(a, b) { return freq[b] - freq[a]; });
+  var p1 = sorted[0] || "Industry", p2 = sorted[1] || "Trends", p3 = sorted[2] || "Opportunities";
+  var parts = (p1 + " " + p2 + " on " + p3 + " and Future Developments").split(' ');
+  while (parts.length < 7) parts.push("Insights");
+  return parts.slice(0, 7).map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
+}
+
+function parseInput(raw) {
+  raw = (raw || '').replace(/\r/g, '').trim();
+  if (!raw) return { segments: [], kind: 'none' };
+  if (/\d{1,2}:\d{2}:\d{2}[,.]\d{1,3}\s*-->\s*\d{1,2}:\d{2}:\d{2}[,.]\d{1,3}/.test(raw)) return parseSRT(raw);
+  return parseTurbo(raw);
+}
+
+function parseTurbo(raw) {
+  var lines = raw.split('\n'), segs = [], speaker = 'Speaker 1', open = null;
+  var re = /\((\d+):(\d{2})(?::(\d{2}))?\)/g;
+  lines.forEach(function(line) {
+    var t = line.trim(); if (!t) return;
+    var sm = /^Speaker\s*(\d+)\s*$/i.exec(t);
+    if (sm) { speaker = 'Speaker ' + sm[1]; open = null; return; }
+    var last = 0, m; re.lastIndex = 0;
+    while ((m = re.exec(t)) !== null) {
+      var before = t.slice(last, m.index).trim();
+      if (before) { if (open) open.text += ' ' + before; else { open = { speaker: speaker, start: 0, text: before }; segs.push(open); } }
+      var start = m[3] !== undefined ? ((+m[1]) * 3600 + (+m[2]) * 60 + (+m[3])) * 1000 : ((+m[1]) * 60 + (+m[2])) * 1000;
+      open = { speaker: speaker, start: start, text: '' }; segs.push(open); last = m.index + m[0].length;
+    }
+    var tail = t.slice(last).trim();
+    if (tail) { if (open) open.text += (open.text ? ' ' : '') + tail; else { open = { speaker: speaker, start: 0, text: tail }; segs.push(open); } }
+  });
+  return { segments: segs.filter(function(s) { return s.text.trim(); }), kind: 'text' };
+}
+
+function parseSRT(raw) {
+  var blocks = raw.split(/\n\s*\n/), segs = [], lastSpk = 'Speaker 1';
+  var tre = /(\d{1,2}):(\d{2}):(\d{2})[,.](\d{1,3})\s*-->\s*(\d{1,2}):(\d{2}):(\d{2})[,.](\d{1,3})/;
+  blocks.forEach(function(b) {
+    var lines = b.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
+    var ti = -1, tm = null;
+    for (var i = 0; i < lines.length; i++) { tm = tre.exec(lines[i]); if (tm) { ti = i; break; } }
+    if (ti < 0) return;
+    var ms = function(h, m, s, f) { return ((+h) * 3600 + (+m) * 60 + (+s)) * 1000 + parseInt((f + '00').slice(0, 3), 10); };
+    var text = lines.slice(ti + 1).join(' ').trim();
+    var sp = /^(Speaker\s*\d+)\s*[:\-\u2013]\s*([\s\S]*)$/i.exec(text);
+    if (sp) { lastSpk = sp[1].replace(/\s+/, ' ').replace(/^speaker/i, 'Speaker'); text = sp[2].trim(); }
+    if (!text) return;
+    segs.push({ speaker: lastSpk, start: ms(tm[1], tm[2], tm[3], tm[4]), end: ms(tm[5], tm[6], tm[7], tm[8]), text: text });
+  });
+  return { segments: segs, kind: 'srt' };
+}
+
+function autoSpeakerMap(tags) {
+  var counts = { Male: 0, Female: 0 }, map = {};
+  tags.forEach(function(t) { counts['Male']++; map[t] = { gender: 'Male', label: 'Male_' + counts['Male'], manual: false }; });
+  return map;
+}
+
+function relabel(map, tags) {
+  var counts = { Male: 0, Female: 0 };
+  tags.forEach(function(t) { var e = map[t]; counts[e.gender]++; if (!e.manual) e.label = e.gender + '_' + counts[e.gender]; });
+}
+
+function buildBlocks(parsed, cfg) {
+  var segs = parsed.segments.map(function(s) { return { speaker: s.speaker, start: s.start, end: s.end, text: s.text }; });
+  if (parsed.kind === 'text' && cfg.randomMs) {
+    var offset = Math.floor(Math.random() * 800) + 100;
+    for (var j = 0; j < segs.length; j++) { segs[j].start += offset; offset = (offset + Math.floor(Math.random() * 600) + 200) % 1000 || 142; }
+  }
+  var audioMs = cfg.audioMs || 0, lastIdx = segs.length - 1;
+  segs.forEach(function(s, i) {
+    if (parsed.kind === 'text') s.end = i < lastIdx ? segs[i + 1].start : (audioMs > s.start ? audioMs : s.start + 2500);
+    else if (cfg.continuous && i < lastIdx) s.end = segs[i + 1].start;
+  });
+  return segs;
+}
+
+function countWords(s) { return (s.match(/\S+/g) || []).length; }
+
+if (typeof document !== 'undefined' && document.getElementById) {
+(function() {
+  var $ = function(id) { return document.getElementById(id); };
+  var speakerMap = null, speakerTags = [];
+  function toast(msg) { var t = $('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(function() { t.classList.remove('show'); }, 2200); }
+
+  $('btnGenTitle').addEventListener('click', function() { $('topic').value = generateSevenWordTitle($('raw').value); toast('7-word title generated'); });
+  $('btnDetect').addEventListener('click', function() {
+    var parsed = parseInput($('raw').value);
+    var tags = []; parsed.segments.forEach(function(s) { if (tags.indexOf(s.speaker) < 0) tags.push(s.speaker); });
+    if (!tags.length) { $('spkBox').innerHTML = '<div class="hint">No speakers found.</div>'; return; }
+    speakerMap = autoSpeakerMap(tags); speakerTags = tags;
+    var html = '<table class="spk"><thead><tr><th>Source tag</th><th>Gender</th><th>Label</th></tr></thead><tbody>';
+    speakerTags.forEach(function(t, i) { html += '<tr><td>' + esc(t) + '</td><td><select data-i="' + i + '" class="g"><option>Male</option><option>Female</option></select></td><td><input type="text" data-i="' + i + '" class="l" value="' + esc(speakerMap[t].label) + '"></td></tr>'; });
+    $('spkBox').innerHTML = html + '</tbody></table>';
+    toast('Speakers detected');
+  });
+
+  $('btnGo').addEventListener('click', function() {
+    if (!$('raw').value.trim()) { toast('Paste raw transcript first'); return; }
+    if (!$('topic').value.trim()) $('topic').value = generateSevenWordTitle($('raw').value);
+    var parsed = parseInput($('raw').value);
+    var cfg = { randomMs: $('oRandomMs').checked, continuous: $('oContinuous').checked, audioMs: parseAudioLength($('audio').value) };
+    var blocks = buildBlocks(parsed, cfg);
+    var lines = [
+      'Transcription Job: ' + $('topic').value, 'Client: ' + $('client').value,
+      'Transcribed By: ' + $('by').value, 'Date: ' + $('date').value, 'Audio Length: ' + ($('audio').value || '5:08'), ''
+    ];
+    blocks.forEach(function(b) { lines.push('Male_1:\n[' + fmtTs(b.start) + ' --> ' + fmtTs(b.end) + ']\n' + b.text + '\n'); });
+    lines.push('[END OF RECORDING --> ' + fmtTs(blocks[blocks.length - 1].end) + ']');
+    $('out').value = lines.join('\n');
+    toast('Transcript generated!');
+  });
+})();
+}
+</script>
+</body>
+                                                                 </html>
+  
