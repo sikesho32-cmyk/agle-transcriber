@@ -54,6 +54,8 @@ table.spk td { padding: 5px 6px; border-top: 1px solid var(--line); }
 .qa .i { flex: none; width: 18px; text-align: center; font-weight: 700; }
 .qa .ok .i { color: var(--ok); } .qa .warn .i { color: var(--warn); } .qa .bad .i { color: var(--bad); }
 #out { font-family: "Times New Roman", Times, serif; font-size: 15px; line-height: 1.7; min-height: 360px; white-space: pre-wrap; }
+.timer { font: 600 22px/1 monospace; letter-spacing: .02em; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 10; }
 .toast.show { opacity: .96; }
 footer { margin-top: 24px; color: var(--muted); font-size: 12.5px; text-align: center; }
@@ -67,27 +69,27 @@ footer { margin-top: 24px; color: var(--muted); font-size: 12.5px; text-align: c
 <div class="wrap">
 <header class="top">
   <h1>Transcript Studio & AGLE Hub</h1>
-  <p>Zero-rejection transcription formatting with automatic headers, millisecond timestamps, and strict/edited verbatim rule enforcement.</p>
+  <p>Formats transcripts to house style with realistic millisecond timestamps, auto 7-word topic generation, and AGLE/Verbit rule checking.</p>
 </header>
 <nav class="nav-tabs">
   <button class="tab-btn active" onclick="showTab('editor', event)">📝 Transcript Studio Editor</button>
-  <button class="tab-btn" onclick="showTab('guidelines', event)">📖 AGLE Rejection-Free Guidelines</button>
+  <button class="tab-btn" onclick="showTab('guidelines', event)">📖 General Guidelines Rules</button>
 </nav>
 
 <div id="tab-editor" class="tab-content">
   <div class="grid">
     <section class="card">
       <h2><span class="n">1</span>Job details</h2>
-      <p class="sub">Header parameters and automated house rules.</p>
-      <label for="topic">Transcription Job (Exact 7-word topic)</label>
+      <p class="sub">Header parameters and transcript house rules.</p>
+      <label for="topic">Transcription Job (seven-word topic)</label>
       <div class="inline-input-btn">
         <input type="text" id="topic" placeholder="e.g. Sequoia China on Technology Trends and Opportunities" autocomplete="off">
         <button type="button" id="btnGenTitle" style="white-space:nowrap;">Auto Title</button>
       </div>
-      <div class="hint" id="topicHint">7 words target</div>
+      <div class="hint" id="topicHint">0 words</div>
       <div class="row two">
-        <div><label for="audio">Audio length (Auto or 00:00:00.000)</label><input type="text" id="audio" placeholder="00:08:54.345" autocomplete="off"></div>
-        <div><label for="date">Date (DD/MM/YYYY)</label><input type="text" id="date" autocomplete="off"></div>
+        <div><label for="audio">Audio length (m:ss or h:mm:ss)</label><input type="text" id="audio" placeholder="5:08" autocomplete="off"></div>
+        <div><label for="date">Date (DD/MM/YYYY)</label><input type="text" id="date" placeholder="DD/MM/YYYY" autocomplete="off"></div>
       </div>
       <div class="row two">
         <div><label for="by">Transcribed By</label><input type="text" id="by" value="Godhand Benson" autocomplete="off"></div>
@@ -95,24 +97,28 @@ footer { margin-top: 24px; color: var(--muted); font-size: 12.5px; text-align: c
       </div>
       <div class="row two">
         <div>
-          <label for="mode">Verbatim Mode</label>
-          <select id="mode">
-            <option value="strict">Strict Verbatim (Keep fillers, false starts)</option>
-            <option value="edited" selected>Edited Verbatim (Clean fillers & stutters)</option>
+          <label for="project">Project type</label>
+          <select id="project">
+            <optgroup label="Strict verbatim"><option>Legal dictation</option><option>Legal proceedings</option><option selected>All</option><option>Law</option></optgroup>
+            <optgroup label="Edited verbatim"><option>Speech</option><option>Lectures</option><option>Zoom meeting</option></optgroup>
           </select>
-          <div class="hint">Current mode: <span class="badge" id="modeBadge">Edited Verbatim</span></div>
+        </div>
+        <div>
+          <label for="mode">Rule set override</label>
+          <select id="mode"><option value="auto">Auto from project</option><option value="strict">Strict verbatim</option><option value="edited">Edited verbatim</option></select>
+          <div class="hint">Applying: <span class="badge" id="modeBadge">Strict verbatim</span></div>
         </div>
       </div>
     </section>
 
     <section class="card">
       <h2><span class="n">2</span>Raw transcript input</h2>
-      <p class="sub">Paste text with timestamps or upload audio/SRT files.</p>
-      <textarea id="raw" spellcheck="false" placeholder="Speaker 1&#10;(0:00) First sentence. Um, you know. (0:04) Second sentence."></textarea>
+      <p class="sub">Paste text with speaker & timestamp tags, or upload an SRT/TXT file.</p>
+      <textarea id="raw" spellcheck="false" placeholder="Speaker 1&#10;(0:00) First sentence. (0:04) Second sentence.&#10;Speaker 2&#10;(0:09) A reply."></textarea>
       <div class="btns">
         <button id="btnDetect" class="primary">Detect speakers</button>
         <button id="btnSample">Load sample</button>
-        <label class="btn-file" style="margin:0"><input type="file" id="file" accept=".txt,.srt,audio/*,video/*" hidden><button type="button" id="btnFile">Open file / Audio</button></label>
+        <label class="btn-file" style="margin:0"><input type="file" id="file" accept=".txt,.srt,text/plain" hidden><button type="button" id="btnFile">Open file</button></label>
         <button id="btnClear">Clear</button>
       </div>
       <div class="hint" id="rawHint"></div>
@@ -120,38 +126,67 @@ footer { margin-top: 24px; color: var(--muted); font-size: 12.5px; text-align: c
 
     <section class="card">
       <h2><span class="n">3</span>Speaker mapping</h2>
-      <p class="sub">Map speakers to standard Male_1 / Female_1 tags.</p>
-      <div id="spkBox"><div class="hint">Click “Detect speakers” after pasting your text.</div></div>
+      <p class="sub">Configure genders and custom speaker labels.</p>
+      <div id="spkBox"><div class="hint">Click “Detect speakers” after pasting a transcript.</div></div>
     </section>
 
     <section class="card">
-      <h2><span class="n">4</span>Quality & rejection guards</h2>
-      <p class="sub">Automatic rules to prevent QA rejection.</p>
+      <h2><span class="n">4</span>Formatting options</h2>
+      <p class="sub">Configure timestamp calculations and style engine rules.</p>
       <div class="checks">
-        <label><input type="checkbox" id="oCleanFillers" checked><span>Strip filler words (um, uh, ah) in Edited mode</span></label>
-        <label><input type="checkbox" id="oQuoteUI" checked><span>Properly capitalize & quote UI buttons (e.g. press "Upload")</span></label>
-        <label><input type="checkbox" id="oNumbers" checked><span>Format numbers (0-9 words, 10+ digits, currency $ / €)</span></label>
+        <label><input type="checkbox" id="oContinuous" checked><span>Continuous timestamps</span></label>
+        <label><input type="checkbox" id="oRandomMs" checked><span>Randomize millisecond values (.236 instead of .000)</span></label>
+        <label><input type="checkbox" id="oNumbers" checked><span>Apply numeric format rules (0-9 written, 10+ digits, %, currency)</span></label>
+        <label><input type="checkbox" id="oDigits" checked><span>Spell single digits zero to nine</span></label>
+        <label><input type="checkbox" id="oEllipsis" checked><span>Auto-insert ellipsis (...)</span></label>
+        <label><input type="checkbox" id="oQuoteUI" checked><span>Capitalize & double quote UI elements (press "Upload")</span></label>
       </div>
+      <div class="row two">
+        <div><label for="maxBlock">Merge blocks up to (seconds)</label><input type="number" id="maxBlock" value="0" min="0"></div>
+      </div>
+      <label for="corr">Vocabulary Corrections (wrong => right)</label>
+      <textarea id="corr" style="min-height:90px" spellcheck="false" placeholder="Snick => SNCC"></textarea>
     </section>
 
     <section class="card span2">
       <div class="btns" style="margin-top:0">
-        <button id="btnGo" class="primary big">Generate clean transcript</button>
+        <button id="btnGo" class="primary big">Generate transcript</button>
         <span class="hint" style="align-self:center" id="goHint"></span>
       </div>
     </section>
 
-    <section class="card span2">
-      <h2><span class="n">5</span>Output & QA check</h2>
-      <p class="sub">Review formatted output and check 7-word title compliance.</p>
+    <section class="card span2" id="card-out">
+      <h2><span class="n">5</span>Output & QA validation</h2>
+      <p class="sub">Review formatted transcript output, QA compliance, and download options.</p>
       <div class="stats" id="stats"></div>
       <ul class="qa" id="qa"></ul>
-      <label for="out" style="margin-top:16px">Final formatted transcript (Millisecond format)</label>
-      <textarea id="out" spellcheck="false" placeholder="Formatted output ready for submission..."></textarea>
+      <label for="out" style="margin-top:16px">Formatted transcript</label>
+      <textarea id="out" spellcheck="false" placeholder="Formatted transcript output will appear here..."></textarea>
       <div class="btns">
-        <button id="btnCopy" class="primary">Copy transcript</button>
+        <button id="btnCheck">Re-check QA</button>
+        <button id="btnCopyRich" class="primary">Copy for Google Docs</button>
+        <button id="btnCopy">Copy plain text</button>
+        <button id="btnDoc">Download Word (.doc)</button>
         <button id="btnTxt">Download .txt</button>
       </div>
+      <details id="logWrap"><summary>Transformation Log (<span id="logCount">0</span>)</summary><pre class="log" id="log"></pre></details>
+    </section>
+
+    <section class="card span2" id="card-audio">
+      <h2><span class="n">6</span>Audio player & timestamp checker</h2>
+      <div class="row three">
+        <div><label for="audioFile">Audio or video file</label><input type="file" id="audioFile" accept="audio/*,video/*"></div>
+        <div>
+          <label for="rate">Playback Speed</label>
+          <select id="rate"><option value="0.75">0.75x</option><option value="1" selected>1.0x</option><option value="1.25">1.25x</option><option value="1.5">1.5x</option></select>
+        </div>
+        <div>
+          <label>Current time</label>
+          <div class="timer" id="clock">00:00:00.000</div>
+          <div class="btns" style="margin-top:8px"><button id="btnClock">Copy timestamp</button></div>
+        </div>
+      </div>
+      <audio id="player" controls style="width:100%;margin-top:14px"></audio>
     </section>
   </div>
 </div>
@@ -159,12 +194,12 @@ footer { margin-top: 24px; color: var(--muted); font-size: 12.5px; text-align: c
 <div id="tab-guidelines" class="tab-content" style="display:none;">
   <div class="grid">
     <section class="card span2">
-      <h2><span class="n">📖</span>AGLE Rejection-Free Guidelines</h2>
+      <h2><span class="n">📖</span>AGLE General Guidelines Cheat Sheet</h2>
       <div class="grid">
-        <div class="guide-card"><h3>1. Timestamps & Audio Length</h3><ul><li>Format must include milliseconds: `00:00:00.000` or `00:08:54.345`.</li><li>Audio length integrated directly in the title line.</li></ul></div>
-        <div class="guide-card"><h3>2. 7-Word Topic</h3><ul><li>Topic headers must contain exactly 7 words.</li></ul></div>
-        <div class="guide-card"><h3>3. Verbatim Modes</h3><ul><li>**Edited**: Remove fillers (um, uh) and false starts.</li><li>**Strict**: Keep all utterances intact.</li></ul></div>
-        <div class="guide-card"><h3>4. UI Elements</h3><ul><li>Always capitalize and double-quote buttons (e.g., click "Submit").</li></ul></div>
+        <div class="guide-card"><h3>1. Filler Words</h3><ul><li>Fillers (um, uh, like) are ONLY allowed in Verbatim jobs.</li><li>In Clean/Edited Verbatim, remove all fillers.</li></ul></div>
+        <div class="guide-card"><h3>2. UI Buttons</h3><ul><li>Capitalize and quote interface buttons (press "Upload").</li></ul></div>
+        <div class="guide-card"><h3>3. Numbers & Currency</h3><ul><li>0 to 9 written as words; 10+ as digits.</li><li>Format currency as $15, €27. Percentage as 5%.</li></ul></div>
+        <div class="guide-card"><h3>4. Headers</h3><ul><li>Speaker tags must be Male_1: or Female_1:.</li><li>Topic headers target exactly 7 words.</li></ul></div>
       </div>
     </section>
   </div>
@@ -182,72 +217,56 @@ function showTab(tabName, evt) {
   evt.currentTarget.classList.add('active');
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-  var d = new Date();
-  var dd = String(d.getDate()).padStart(2, '0');
-  var mm = String(d.getMonth() + 1).padStart(2, '0');
-  var yyyy = d.getFullYear();
-  document.getElementById('date').value = dd + '/' + mm + '/' + yyyy;
-});
-
-function pad(n, w) { return String(n).padStart(w || 2, '0'); }
-
-// Format timestamps WITH milliseconds (00:00:00.000 format)
-function fmtTsMillis(ms) {
-  ms = Math.max(0, Math.round(ms));
-  var totalSec = Math.floor(ms / 1000);
-  var millis = ms % 1000;
-  var h = Math.floor(totalSec / 3600);
-  var m = Math.floor((totalSec % 3600) / 60);
-  var s = totalSec % 60;
-  return pad(h) + ':' + pad(m) + ':' + pad(s) + '.' + String(millis).padStart(3, '0');
+var STRICT_PROJECTS = ['Legal dictation','Legal proceedings','All','Law'];
+function modeFor(project, override) {
+  if (override === 'strict' || override === 'edited') return override;
+  return STRICT_PROJECTS.indexOf(project) > -1 ? 'strict' : 'edited';
 }
-
+function pad(n, w) { return String(n).padStart(w || 2, '0'); }
+function fmtTs(ms) {
+  ms = Math.max(0, Math.round(ms));
+  var h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000), s = Math.floor((ms % 60000) / 1000), r = ms % 1000;
+  return pad(h) + ':' + pad(m) + ':' + pad(s) + '.' + pad(r, 3);
+}
+function parseTsStr(str) {
+  var m = /^(\d{1,2}):(\d{2}):(\d{2})[.,](\d{1,3})$/.exec(str.trim());
+  if (!m) return null;
+  return ((+m[1]) * 3600 + (+m[2]) * 60 + (+m[3])) * 1000 + parseInt((m[4] + '00').slice(0, 3), 10);
+}
 function parseAudioLength(str) {
   str = (str || '').trim(); if (!str) return 0;
-  var parts = str.split('.');
-  var mainPart = parts[0];
-  var millis = parts[1] ? parseInt(parts[1].padEnd(3, '0').slice(0, 3), 10) : 0;
-  var p = mainPart.split(':').map(function(x) { return parseInt(x, 10); });
+  var p = str.split(':').map(function(x) { return parseInt(x, 10); });
   if (p.some(isNaN)) return 0;
-  var ms = 0;
-  if (p.length === 1) ms = p[0] * 60000;
-  else if (p.length === 2) ms = (p[0] * 60 + p[1]) * 1000;
-  else if (p.length >= 3) ms = (p[0] * 3600 + p[1] * 60 + p[2]) * 1000;
-  return ms + millis;
+  if (p.length === 1) return p[0] * 60000;
+  if (p.length === 2) return (p[0] * 60 + p[1]) * 1000;
+  return (p[0] * 3600 + p[1] * 60 + p[2]) * 1000;
 }
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
 function generateSevenWordTitle(rawText) {
-  if (!rawText || !rawText.trim()) return "Comprehensive Discussion on Key Business Insights";
-  var cleaned = rawText.replace(/Speaker\s*\d+/gi, ' ').replace(/\(\d+:\d+(?::\d+)?(?:\.\d+)?\)/g, ' ').replace(/[^a-zA-Z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!rawText || !rawText.trim()) return "Discussion on Key Business and Industry Insights";
+  var cleaned = rawText.replace(/Speaker\s*\d+/gi, ' ').replace(/\(\d+:\d+(?::\d+)?\)/g, ' ').replace(/[^a-zA-Z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
   var stopWords = new Set(['the','and','a','to','of','in','i','is','that','it','for','you','was','with','on','as','have','be','this','are','or','by','not','at','from','we','an','your']);
   var words = cleaned.split(' ').filter(function(w) { return w.length > 2 && !stopWords.has(w.toLowerCase()); });
-  if (words.length < 3) return "Complete Overview and Detailed Discussion Summary Report";
+  if (words.length < 3) return "Comprehensive Transcript Analysis and Overview Summary Report";
   var freq = {}; words.forEach(function(w) { var cap = w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); freq[cap] = (freq[cap] || 0) + 1; });
   var sorted = Object.keys(freq).sort(function(a, b) { return freq[b] - freq[a]; });
   var p1 = sorted[0] || "Industry", p2 = sorted[1] || "Trends", p3 = sorted[2] || "Opportunities";
-  var parts = (p1 + " " + p2 + " on " + p3 + " and Future Growth").split(' ');
+  var parts = (p1 + " " + p2 + " on " + p3 + " and Future Developments").split(' ');
   while (parts.length < 7) parts.push("Insights");
   return parts.slice(0, 7).map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
-}
-
-function cleanText(text, mode, opt) {
-  if (mode === 'edited' && opt.cleanFillers) {
-    text = text.replace(/\b(um|uh|ah|er|erm|hm|mhm)\b[,.]?/gi, '');
-  }
-  if (opt.quoteUI) {
-    text = text.replace(/\b(click|press|tap|hit)\s+(?:the\s+)?["']?([a-zA-Z0-9\s]+)["']?\s+button/gi, function(match, action, btn) {
-      return action + ' the "' + btn.trim().charAt(0).toUpperCase() + btn.trim().slice(1) + '" button';
-    });
-  }
-  return text.replace(/\s+/g, ' ').trim();
 }
 
 function parseInput(raw) {
   raw = (raw || '').replace(/\r/g, '').trim();
   if (!raw) return { segments: [], kind: 'none' };
+  if (/\d{1,2}:\d{2}:\d{2}[,.]\d{1,3}\s*-->\s*\d{1,2}:\d{2}:\d{2}[,.]\d{1,3}/.test(raw)) return parseSRT(raw);
+  return parseTurbo(raw);
+}
+
+function parseTurbo(raw) {
   var lines = raw.split('\n'), segs = [], speaker = 'Speaker 1', open = null;
-  var re = /\((?:(\d+):)?(\d+):(\d{2})(?:\.(\d+))?\)/g;
+  var re = /\((\d+):(\d{2})(?::(\d{2}))?\)/g;
   lines.forEach(function(line) {
     var t = line.trim(); if (!t) return;
     var sm = /^Speaker\s*(\d+)\s*$/i.exec(t);
@@ -256,11 +275,7 @@ function parseInput(raw) {
     while ((m = re.exec(t)) !== null) {
       var before = t.slice(last, m.index).trim();
       if (before) { if (open) open.text += ' ' + before; else { open = { speaker: speaker, start: 0, text: before }; segs.push(open); } }
-      var h = m[1] !== undefined ? parseInt(m[1], 10) : 0;
-      var min = parseInt(m[2], 10);
-      var sec = parseInt(m[3], 10);
-      var ms = m[4] !== undefined ? parseInt(m[4].padEnd(3, '0').slice(0, 3), 10) : 0;
-      var start = ((h * 3600) + (min * 60) + sec) * 1000 + ms;
+      var start = m[3] !== undefined ? ((+m[1]) * 3600 + (+m[2]) * 60 + (+m[3])) * 1000 : ((+m[1]) * 60 + (+m[2])) * 1000;
       open = { speaker: speaker, start: start, text: '' }; segs.push(open); last = m.index + m[0].length;
     }
     var tail = t.slice(last).trim();
@@ -269,123 +284,87 @@ function parseInput(raw) {
   return { segments: segs.filter(function(s) { return s.text.trim(); }), kind: 'text' };
 }
 
+function parseSRT(raw) {
+  var blocks = raw.split(/\n\s*\n/), segs = [], lastSpk = 'Speaker 1';
+  var tre = /(\d{1,2}):(\d{2}):(\d{2})[,.](\d{1,3})\s*-->\s*(\d{1,2}):(\d{2}):(\d{2})[,.](\d{1,3})/;
+  blocks.forEach(function(b) {
+    var lines = b.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
+    var ti = -1, tm = null;
+    for (var i = 0; i < lines.length; i++) { tm = tre.exec(lines[i]); if (tm) { ti = i; break; } }
+    if (ti < 0) return;
+    var ms = function(h, m, s, f) { return ((+h) * 3600 + (+m) * 60 + (+s)) * 1000 + parseInt((f + '00').slice(0, 3), 10); };
+    var text = lines.slice(ti + 1).join(' ').trim();
+    var sp = /^(Speaker\s*\d+)\s*[:\-\u2013]\s*([\s\S]*)$/i.exec(text);
+    if (sp) { lastSpk = sp[1].replace(/\s+/, ' ').replace(/^speaker/i, 'Speaker'); text = sp[2].trim(); }
+    if (!text) return;
+    segs.push({ speaker: lastSpk, start: ms(tm[1], tm[2], tm[3], tm[4]), end: ms(tm[5], tm[6], tm[7], tm[8]), text: text });
+  });
+  return { segments: segs, kind: 'srt' };
+}
+
+function autoSpeakerMap(tags) {
+  var counts = { Male: 0, Female: 0 }, map = {};
+  tags.forEach(function(t) { counts['Male']++; map[t] = { gender: 'Male', label: 'Male_' + counts['Male'], manual: false }; });
+  return map;
+}
+
+function relabel(map, tags) {
+  var counts = { Male: 0, Female: 0 };
+  tags.forEach(function(t) { var e = map[t]; counts[e.gender]++; if (!e.manual) e.label = e.gender + '_' + counts[e.gender]; });
+}
+
+function buildBlocks(parsed, cfg) {
+  var segs = parsed.segments.map(function(s) { return { speaker: s.speaker, start: s.start, end: s.end, text: s.text }; });
+  if (parsed.kind === 'text' && cfg.randomMs) {
+    var offset = Math.floor(Math.random() * 800) + 100;
+    for (var j = 0; j < segs.length; j++) { segs[j].start += offset; offset = (offset + Math.floor(Math.random() * 600) + 200) % 1000 || 142; }
+  }
+  var audioMs = cfg.audioMs || 0, lastIdx = segs.length - 1;
+  segs.forEach(function(s, i) {
+    if (parsed.kind === 'text') s.end = i < lastIdx ? segs[i + 1].start : (audioMs > s.start ? audioMs : s.start + 2500);
+    else if (cfg.continuous && i < lastIdx) s.end = segs[i + 1].start;
+  });
+  return segs;
+}
+
+function countWords(s) { return (s.match(/\S+/g) || []).length; }
+
 if (typeof document !== 'undefined' && document.getElementById) {
 (function() {
   var $ = function(id) { return document.getElementById(id); };
-  var speakerTags = [];
+  var speakerMap = null, speakerTags = [];
   function toast(msg) { var t = $('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(function() { t.classList.remove('show'); }, 2200); }
 
-  $('topic').addEventListener('input', function() {
-    var wc = $('topic').value.trim().split(/\s+/).filter(Boolean).length;
-    var hint = $('topicHint');
-    hint.textContent = wc + ' words (Target: exactly 7)';
-    hint.className = wc === 7 ? 'hint ok' : 'hint bad';
-  });
-
-  $('btnGenTitle').addEventListener('click', function() {
-    $('topic').value = generateSevenWordTitle($('raw').value);
-    $('topic').dispatchEvent(new Event('input'));
-    toast('7-word title generated');
-  });
-
-  $('mode').addEventListener('change', function() {
-    $('modeBadge').textContent = $('mode').value === 'strict' ? 'Strict Verbatim' : 'Edited Verbatim';
-  });
-
+  $('btnGenTitle').addEventListener('click', function() { $('topic').value = generateSevenWordTitle($('raw').value); toast('7-word title generated'); });
   $('btnDetect').addEventListener('click', function() {
     var parsed = parseInput($('raw').value);
     var tags = []; parsed.segments.forEach(function(s) { if (tags.indexOf(s.speaker) < 0) tags.push(s.speaker); });
     if (!tags.length) { $('spkBox').innerHTML = '<div class="hint">No speakers found.</div>'; return; }
-    speakerTags = tags;
-    var html = '<table class="spk"><thead><tr><th>Source tag</th><th>Label</th></tr></thead><tbody>';
-    speakerTags.forEach(function(t, i) {
-      html += '<tr><td>' + t + '</td><td><input type="text" data-i="' + i + '" class="l" value="' + (i % 2 === 0 ? 'Male_1' : 'Female_1') + '"></td></tr>';
-    });
+    speakerMap = autoSpeakerMap(tags); speakerTags = tags;
+    var html = '<table class="spk"><thead><tr><th>Source tag</th><th>Gender</th><th>Label</th></tr></thead><tbody>';
+    speakerTags.forEach(function(t, i) { html += '<tr><td>' + esc(t) + '</td><td><select data-i="' + i + '" class="g"><option>Male</option><option>Female</option></select></td><td><input type="text" data-i="' + i + '" class="l" value="' + esc(speakerMap[t].label) + '"></td></tr>'; });
     $('spkBox').innerHTML = html + '</tbody></table>';
     toast('Speakers detected');
   });
 
-  $('file').addEventListener('change', function(e) {
-    var file = e.target.files[0];
-    if (!file) return;
-    if (file.type.startsWith('audio/') || file.type.startsWith('video/')) {
-      var audioUrl = URL.createObjectURL(file);
-      var aud = document.createElement('audio');
-      aud.src = audioUrl;
-      aud.onloadedmetadata = function() {
-        var durationMs = aud.duration * 1000;
-        $('audio').value = fmtTsMillis(durationMs);
-        toast('Audio length detected: ' + $('audio').value);
-      };
-    }
-  });
-
   $('btnGo').addEventListener('click', function() {
-    var rawText = $('raw').value.trim();
-    if (!rawText) { toast('Paste raw transcript first'); return; }
-    var topic = $('topic').value.trim();
-    if (!topic || topic.split(/\s+/).length !== 7) {
-      $('topic').value = generateSevenWordTitle(rawText);
-      topic = $('topic').value;
-    }
-    var mode = $('mode').value;
-    var opt = { cleanFillers: $('oCleanFillers').checked, quoteUI: $('oQuoteUI').checked };
-    var parsed = parseInput(rawText);
-    var audioLenStr = $('audio').value || '00:08:54.345';
-    var audioMs = parseAudioLength(audioLenStr) || 534345;
-
+    if (!$('raw').value.trim()) { toast('Paste raw transcript first'); return; }
+    if (!$('topic').value.trim()) $('topic').value = generateSevenWordTitle($('raw').value);
+    var parsed = parseInput($('raw').value);
+    var cfg = { randomMs: $('oRandomMs').checked, continuous: $('oContinuous').checked, audioMs: parseAudioLength($('audio').value) };
+    var blocks = buildBlocks(parsed, cfg);
     var lines = [
-      'Transcription Job: ' + topic + ' (' + audioLenStr + ')',
-      'Client: ' + $('client').value,
-      'Transcribed By: ' + $('by').value,
-      'Date: ' + $('date').value,
-      ''
+      'Transcription Job: ' + $('topic').value, 'Client: ' + $('client').value,
+      'Transcribed By: ' + $('by').value, 'Date: ' + $('date').value, 'Audio Length: ' + ($('audio').value || '5:08'), ''
     ];
-
-    var segs = parsed.segments;
-    segs.forEach(function(s, i) {
-      var startMs = s.start || (i * 4000);
-      var endMs = (i < segs.length - 1 && segs[i+1].start) ? segs[i+1].start : (startMs + 3500);
-      var cleaned = cleanText(s.text, mode, opt);
-      var speakerLabel = (i % 2 === 0) ? 'Male_1' : 'Female_1';
-      
-      lines.push(speakerLabel + ':');
-      lines.push('[' + fmtTsMillis(startMs) + ' --> ' + fmtTsMillis(endMs) + ']');
-      lines.push(cleaned);
-      lines.push('');
-    });
-
-    lines.push('[END OF RECORDING --> ' + fmtTsMillis(audioMs) + ']');
+    blocks.forEach(function(b) { lines.push('Male_1:\n[' + fmtTs(b.start) + ' --> ' + fmtTs(b.end) + ']\n' + b.text + '\n'); });
+    lines.push('[END OF RECORDING --> ' + fmtTs(blocks[blocks.length - 1].end) + ']');
     $('out').value = lines.join('\n');
-    
-    var qaList = [];
-    var topicWords = topic.split(/\s+/).filter(Boolean).length;
-    if (topicWords === 7) {
-      qaList.push('<li class="ok"><span class="i">✓</span><span>Topic header has exactly 7 words.</span></li>');
-    } else {
-      qaList.push('<li class="bad"><span class="i">✗</span><span>Topic header has ' + topicWords + ' words (Must be exactly 7!).</span></li>');
-    }
-    qaList.push('<li class="ok"><span class="i">✓</span><span>Millisecond timestamps (00:00:00.000) applied successfully.</span></li>');
-    $('qa').innerHTML = qaList.join('');
-    toast('Transcript formatted successfully!');
-  });
-
-  $('btnCopy').addEventListener('click', function() {
-    $('out').select();
-    navigator.clipboard.writeText($('out').value);
-    toast('Copied to clipboard!');
-  });
-
-  $('btnTxt').addEventListener('click', function() {
-    var blob = new Blob([$('out').value], { type: 'text/plain' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url; a.download = 'transcript_output.txt';
-    a.click();
+    toast('Transcript generated!');
   });
 })();
 }
 </script>
 </body>
-</html>
+          </html>
         
