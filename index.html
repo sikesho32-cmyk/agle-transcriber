@@ -146,7 +146,7 @@ footer { margin-top: 24px; color: var(--muted); font-size: 12.5px; text-align: c
       <p class="sub">Review formatted output and check 7-word title compliance.</p>
       <div class="stats" id="stats"></div>
       <ul class="qa" id="qa"></ul>
-      <label for="out" style="margin-top:16px">Final formatted transcript (Zero microseconds)</label>
+      <label for="out" style="margin-top:16px">Final formatted transcript (Audio length integrated in title)</label>
       <textarea id="out" spellcheck="false" placeholder="Formatted output ready for submission..."></textarea>
       <div class="btns">
         <button id="btnCopy" class="primary">Copy transcript</button>
@@ -161,7 +161,7 @@ footer { margin-top: 24px; color: var(--muted); font-size: 12.5px; text-align: c
     <section class="card span2">
       <h2><span class="n">📖</span>AGLE Rejection-Free Guidelines</h2>
       <div class="grid">
-        <div class="guide-card"><h3>1. Timestamps</h3><ul><li>Must be format `[h:mm:ss --> h:mm:ss]` or `[m:ss --> m:ss]` with **no microseconds**.</li></ul></div>
+        <div class="guide-card"><h3>1. Timestamps & Title</h3><ul><li>Audio length must be included directly in the title header line.</li><li>No microseconds in timestamps.</li></ul></div>
         <div class="guide-card"><h3>2. 7-Word Topic</h3><ul><li>Topic headers must contain exactly 7 words.</li></ul></div>
         <div class="guide-card"><h3>3. Verbatim Modes</h3><ul><li>**Edited**: Remove fillers (um, uh) and false starts.</li><li>**Strict**: Keep all utterances intact.</li></ul></div>
         <div class="guide-card"><h3>4. UI Elements</h3><ul><li>Always capitalize and double-quote buttons (e.g., click "Submit").</li></ul></div>
@@ -182,7 +182,6 @@ function showTab(tabName, evt) {
   evt.currentTarget.classList.add('active');
 }
 
-// Auto populate date on load
 document.addEventListener('DOMContentLoaded', function() {
   var d = new Date();
   var dd = String(d.getDate()).padStart(2, '0');
@@ -193,7 +192,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function pad(n, w) { return String(n).padStart(w || 2, '0'); }
 
-// Format timestamps WITHOUT microseconds (h:mm:ss or m:ss)
 function fmtTsSec(ms) {
   ms = Math.max(0, Math.round(ms));
   var totalSec = Math.floor(ms / 1000);
@@ -266,7 +264,7 @@ function parseInput(raw) {
 if (typeof document !== 'undefined' && document.getElementById) {
 (function() {
   var $ = function(id) { return document.getElementById(id); };
-  var speakerMap = null, speakerTags = [];
+  var speakerTags = [];
   function toast(msg) { var t = $('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(function() { t.classList.remove('show'); }, 2200); }
 
   $('topic').addEventListener('input', function() {
@@ -325,14 +323,15 @@ if (typeof document !== 'undefined' && document.getElementById) {
     var mode = $('mode').value;
     var opt = { cleanFillers: $('oCleanFillers').checked, quoteUI: $('oQuoteUI').checked };
     var parsed = parseInput(rawText);
-    var audioMs = parseAudioLength($('audio').value) || 308000;
+    var audioLenStr = $('audio').value || '5:08';
+    var audioMs = parseAudioLength(audioLenStr) || 308000;
 
+    // Audio length is now integrated directly into the title line!
     var lines = [
-      'Transcription Job: ' + topic,
+      'Transcription Job: ' + topic + ' (' + audioLenStr + ')',
       'Client: ' + $('client').value,
       'Transcribed By: ' + $('by').value,
       'Date: ' + $('date').value,
-      'Audio Length: ' + ($('audio').value || '5:08'),
       ''
     ];
 
@@ -359,6 +358,7 @@ if (typeof document !== 'undefined' && document.getElementById) {
     } else {
       qaList.push('<li class="bad"><span class="i">✗</span><span>Topic header has ' + topicWords + ' words (Must be exactly 7!).</span></li>');
     }
+    qaList.push('<li class="ok"><span class="i">✓</span><span>Audio length successfully integrated into title header.</span></li>');
     qaList.push('<li class="ok"><span class="i">✓</span><span>Timestamps formatted correctly without microseconds.</span></li>');
     $('qa').innerHTML = qaList.join('');
     toast('Transcript formatted successfully!');
@@ -382,4 +382,4 @@ if (typeof document !== 'undefined' && document.getElementById) {
 </script>
 </body>
 </html>
-                                  
+  
