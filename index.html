@@ -67,7 +67,7 @@ footer { margin-top: 24px; color: var(--muted); font-size: 12.5px; text-align: c
 <div class="wrap">
 <header class="top">
   <h1>Transcript Studio & AGLE Hub</h1>
-  <p>Zero-rejection transcription formatting with automatic headers, accurate timestamps, and strict/edited verbatim rule enforcement.</p>
+  <p>Zero-rejection transcription formatting with automatic headers, millisecond timestamps, and strict/edited verbatim rule enforcement.</p>
 </header>
 <nav class="nav-tabs">
   <button class="tab-btn active" onclick="showTab('editor', event)">📝 Transcript Studio Editor</button>
@@ -86,7 +86,7 @@ footer { margin-top: 24px; color: var(--muted); font-size: 12.5px; text-align: c
       </div>
       <div class="hint" id="topicHint">7 words target</div>
       <div class="row two">
-        <div><label for="audio">Audio length (Auto or m:ss)</label><input type="text" id="audio" placeholder="5:08" autocomplete="off"></div>
+        <div><label for="audio">Audio length (Auto or 00:00:00.000)</label><input type="text" id="audio" placeholder="00:08:54.345" autocomplete="off"></div>
         <div><label for="date">Date (DD/MM/YYYY)</label><input type="text" id="date" autocomplete="off"></div>
       </div>
       <div class="row two">
@@ -146,7 +146,7 @@ footer { margin-top: 24px; color: var(--muted); font-size: 12.5px; text-align: c
       <p class="sub">Review formatted output and check 7-word title compliance.</p>
       <div class="stats" id="stats"></div>
       <ul class="qa" id="qa"></ul>
-      <label for="out" style="margin-top:16px">Final formatted transcript (Audio length integrated in title)</label>
+      <label for="out" style="margin-top:16px">Final formatted transcript (Millisecond format)</label>
       <textarea id="out" spellcheck="false" placeholder="Formatted output ready for submission..."></textarea>
       <div class="btns">
         <button id="btnCopy" class="primary">Copy transcript</button>
@@ -161,7 +161,7 @@ footer { margin-top: 24px; color: var(--muted); font-size: 12.5px; text-align: c
     <section class="card span2">
       <h2><span class="n">📖</span>AGLE Rejection-Free Guidelines</h2>
       <div class="grid">
-        <div class="guide-card"><h3>1. Timestamps & Title</h3><ul><li>Audio length must be included directly in the title header line.</li><li>No microseconds in timestamps.</li></ul></div>
+        <div class="guide-card"><h3>1. Timestamps & Audio Length</h3><ul><li>Format must include milliseconds: `00:00:00.000` or `00:08:54.345`.</li><li>Audio length integrated directly in the title line.</li></ul></div>
         <div class="guide-card"><h3>2. 7-Word Topic</h3><ul><li>Topic headers must contain exactly 7 words.</li></ul></div>
         <div class="guide-card"><h3>3. Verbatim Modes</h3><ul><li>**Edited**: Remove fillers (um, uh) and false starts.</li><li>**Strict**: Keep all utterances intact.</li></ul></div>
         <div class="guide-card"><h3>4. UI Elements</h3><ul><li>Always capitalize and double-quote buttons (e.g., click "Submit").</li></ul></div>
@@ -192,30 +192,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function pad(n, w) { return String(n).padStart(w || 2, '0'); }
 
-function fmtTsSec(ms) {
+// Format timestamps WITH milliseconds (00:00:00.000 format)
+function fmtTsMillis(ms) {
   ms = Math.max(0, Math.round(ms));
   var totalSec = Math.floor(ms / 1000);
+  var millis = ms % 1000;
   var h = Math.floor(totalSec / 3600);
   var m = Math.floor((totalSec % 3600) / 60);
   var s = totalSec % 60;
-  if (h > 0) {
-    return pad(h) + ':' + pad(m) + ':' + pad(s);
-  }
-  return m + ':' + pad(s);
+  return pad(h) + ':' + pad(m) + ':' + pad(s) + '.' + String(millis).padStart(3, '0');
 }
 
 function parseAudioLength(str) {
   str = (str || '').trim(); if (!str) return 0;
-  var p = str.split(':').map(function(x) { return parseInt(x, 10); });
+  var parts = str.split('.');
+  var mainPart = parts[0];
+  var millis = parts[1] ? parseInt(parts[1].padEnd(3, '0').slice(0, 3), 10) : 0;
+  var p = mainPart.split(':').map(function(x) { return parseInt(x, 10); });
   if (p.some(isNaN)) return 0;
-  if (p.length === 1) return p[0] * 60000;
-  if (p.length === 2) return (p[0] * 60 + p[1]) * 1000;
-  return (p[0] * 3600 + p[1] * 60 + p[2]) * 1000;
+  var ms = 0;
+  if (p.length === 1) ms = p[0] * 60000;
+  else if (p.length === 2) ms = (p[0] * 60 + p[1]) * 1000;
+  else if (p.length >= 3) ms = (p[0] * 3600 + p[1] * 60 + p[2]) * 1000;
+  return ms + millis;
 }
 
 function generateSevenWordTitle(rawText) {
   if (!rawText || !rawText.trim()) return "Comprehensive Discussion on Key Business Insights";
-  var cleaned = rawText.replace(/Speaker\s*\d+/gi, ' ').replace(/\(\d+:\d+(?::\d+)?\)/g, ' ').replace(/[^a-zA-Z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  var cleaned = rawText.replace(/Speaker\s*\d+/gi, ' ').replace(/\(\d+:\d+(?::\d+)?(?:\.\d+)?\)/g, ' ').replace(/[^a-zA-Z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
   var stopWords = new Set(['the','and','a','to','of','in','i','is','that','it','for','you','was','with','on','as','have','be','this','are','or','by','not','at','from','we','an','your']);
   var words = cleaned.split(' ').filter(function(w) { return w.length > 2 && !stopWords.has(w.toLowerCase()); });
   if (words.length < 3) return "Complete Overview and Detailed Discussion Summary Report";
@@ -243,7 +247,7 @@ function parseInput(raw) {
   raw = (raw || '').replace(/\r/g, '').trim();
   if (!raw) return { segments: [], kind: 'none' };
   var lines = raw.split('\n'), segs = [], speaker = 'Speaker 1', open = null;
-  var re = /\((\d+):(\d{2})(?::(\d{2}))?\)/g;
+  var re = /\((?:(\d+):)?(\d+):(\d{2})(?:\.(\d+))?\)/g;
   lines.forEach(function(line) {
     var t = line.trim(); if (!t) return;
     var sm = /^Speaker\s*(\d+)\s*$/i.exec(t);
@@ -252,7 +256,11 @@ function parseInput(raw) {
     while ((m = re.exec(t)) !== null) {
       var before = t.slice(last, m.index).trim();
       if (before) { if (open) open.text += ' ' + before; else { open = { speaker: speaker, start: 0, text: before }; segs.push(open); } }
-      var start = m[3] !== undefined ? ((+m[1]) * 3600 + (+m[2]) * 60 + (+m[3])) * 1000 : ((+m[1]) * 60 + (+m[2])) * 1000;
+      var h = m[1] !== undefined ? parseInt(m[1], 10) : 0;
+      var min = parseInt(m[2], 10);
+      var sec = parseInt(m[3], 10);
+      var ms = m[4] !== undefined ? parseInt(m[4].padEnd(3, '0').slice(0, 3), 10) : 0;
+      var start = ((h * 3600) + (min * 60) + sec) * 1000 + ms;
       open = { speaker: speaker, start: start, text: '' }; segs.push(open); last = m.index + m[0].length;
     }
     var tail = t.slice(last).trim();
@@ -306,7 +314,7 @@ if (typeof document !== 'undefined' && document.getElementById) {
       aud.src = audioUrl;
       aud.onloadedmetadata = function() {
         var durationMs = aud.duration * 1000;
-        $('audio').value = fmtTsSec(durationMs);
+        $('audio').value = fmtTsMillis(durationMs);
         toast('Audio length detected: ' + $('audio').value);
       };
     }
@@ -323,10 +331,9 @@ if (typeof document !== 'undefined' && document.getElementById) {
     var mode = $('mode').value;
     var opt = { cleanFillers: $('oCleanFillers').checked, quoteUI: $('oQuoteUI').checked };
     var parsed = parseInput(rawText);
-    var audioLenStr = $('audio').value || '5:08';
-    var audioMs = parseAudioLength(audioLenStr) || 308000;
+    var audioLenStr = $('audio').value || '00:08:54.345';
+    var audioMs = parseAudioLength(audioLenStr) || 534345;
 
-    // Audio length is now integrated directly into the title line!
     var lines = [
       'Transcription Job: ' + topic + ' (' + audioLenStr + ')',
       'Client: ' + $('client').value,
@@ -343,12 +350,12 @@ if (typeof document !== 'undefined' && document.getElementById) {
       var speakerLabel = (i % 2 === 0) ? 'Male_1' : 'Female_1';
       
       lines.push(speakerLabel + ':');
-      lines.push('[' + fmtTsSec(startMs) + ' --> ' + fmtTsSec(endMs) + ']');
+      lines.push('[' + fmtTsMillis(startMs) + ' --> ' + fmtTsMillis(endMs) + ']');
       lines.push(cleaned);
       lines.push('');
     });
 
-    lines.push('[END OF RECORDING --> ' + fmtTsSec(audioMs) + ']');
+    lines.push('[END OF RECORDING --> ' + fmtTsMillis(audioMs) + ']');
     $('out').value = lines.join('\n');
     
     var qaList = [];
@@ -358,8 +365,7 @@ if (typeof document !== 'undefined' && document.getElementById) {
     } else {
       qaList.push('<li class="bad"><span class="i">✗</span><span>Topic header has ' + topicWords + ' words (Must be exactly 7!).</span></li>');
     }
-    qaList.push('<li class="ok"><span class="i">✓</span><span>Audio length successfully integrated into title header.</span></li>');
-    qaList.push('<li class="ok"><span class="i">✓</span><span>Timestamps formatted correctly without microseconds.</span></li>');
+    qaList.push('<li class="ok"><span class="i">✓</span><span>Millisecond timestamps (00:00:00.000) applied successfully.</span></li>');
     $('qa').innerHTML = qaList.join('');
     toast('Transcript formatted successfully!');
   });
@@ -382,4 +388,4 @@ if (typeof document !== 'undefined' && document.getElementById) {
 </script>
 </body>
 </html>
-  
+        
