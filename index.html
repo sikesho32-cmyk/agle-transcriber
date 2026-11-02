@@ -88,7 +88,7 @@ footer { margin-top: 24px; color: var(--muted); font-size: 12.5px; text-align: c
       </div>
       <div class="hint" id="topicHint">0 words</div>
       <div class="row two">
-        <div><label for="audio">Audio length (m:ss or h:mm:ss)</label><input type="text" id="audio" placeholder="5:08" autocomplete="off"></div>
+        <div><label for="audio">Audio length (m:ss or h:mm:ss)</label><input type="text" id="audio" placeholder="Auto from audio file" autocomplete="off"></div>
         <div><label for="date">Date (DD/MM/YYYY)</label><input type="text" id="date" placeholder="DD/MM/YYYY" autocomplete="off"></div>
       </div>
       <div class="row two">
@@ -116,7 +116,6 @@ footer { margin-top: 24px; color: var(--muted); font-size: 12.5px; text-align: c
       <p class="sub">Paste text with speaker & timestamp tags, or upload an SRT/TXT file.</p>
       <textarea id="raw" spellcheck="false" placeholder="Speaker 1&#10;(0:00) First sentence. (0:04) Second sentence.&#10;Speaker 2&#10;(0:09) A reply."></textarea>
       <div class="btns">
-        <button id="btnDetect" class="primary">Detect speakers</button>
         <button id="btnSample">Load sample</button>
         <label class="btn-file" style="margin:0"><input type="file" id="file" accept=".txt,.srt,text/plain" hidden><button type="button" id="btnFile">Open file</button></label>
         <button id="btnClear">Clear</button>
@@ -125,9 +124,13 @@ footer { margin-top: 24px; color: var(--muted); font-size: 12.5px; text-align: c
     </section>
 
     <section class="card">
-      <h2><span class="n">3</span>Speaker mapping</h2>
-      <p class="sub">Configure genders and custom speaker labels.</p>
-      <div id="spkBox"><div class="hint">Click “Detect speakers” after pasting a transcript.</div></div>
+      <h2><span class="n">3</span>Speaker mapping (Manual)</h2>
+      <p class="sub">Manually add speakers and configure custom labels.</p>
+      <div class="inline-input-btn" style="margin-bottom: 10px;">
+        <input type="text" id="newSpeakerInput" placeholder="Enter speaker name (e.g. Speaker 1)" autocomplete="off">
+        <button type="button" id="btnAddSpeaker" class="primary" style="white-space:nowrap;">Add speaker</button>
+      </div>
+      <div id="spkBox"><div class="hint">No manual speakers added yet. Add them above or they will use input labels.</div></div>
     </section>
 
     <section class="card">
@@ -199,7 +202,7 @@ footer { margin-top: 24px; color: var(--muted); font-size: 12.5px; text-align: c
         <div class="guide-card"><h3>1. Filler Words</h3><ul><li>Fillers (um, uh, like) are ONLY allowed in Verbatim jobs.</li><li>In Clean/Edited Verbatim, remove all fillers.</li></ul></div>
         <div class="guide-card"><h3>2. UI Buttons</h3><ul><li>Capitalize and quote interface buttons (press "Upload").</li></ul></div>
         <div class="guide-card"><h3>3. Numbers & Currency</h3><ul><li>0 to 9 written as words; 10+ as digits.</li><li>Format currency as $15, €27. Percentage as 5%.</li></ul></div>
-        <div class="guide-card"><h3>4. Headers</h3><ul><li>Speaker tags must be Male_1: or Female_1:.</li><li>Topic headers target exactly 7 words.</li></ul></div>
+        <div class="guide-card"><h3>4. Headers</h3><ul><li>Speaker tags match your input or custom mappings.</li><li>Topic headers target exactly 7 words.</li></ul></div>
       </div>
     </section>
   </div>
@@ -228,11 +231,6 @@ function fmtTs(ms) {
   var h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000), s = Math.floor((ms % 60000) / 1000), r = ms % 1000;
   return pad(h) + ':' + pad(m) + ':' + pad(s) + '.' + pad(r, 3);
 }
-function parseTsStr(str) {
-  var m = /^(\d{1,2}):(\d{2}):(\d{2})[.,](\d{1,3})$/.exec(str.trim());
-  if (!m) return null;
-  return ((+m[1]) * 3600 + (+m[2]) * 60 + (+m[3])) * 1000 + parseInt((m[4] + '00').slice(0, 3), 10);
-}
 function parseAudioLength(str) {
   str = (str || '').trim(); if (!str) return 0;
   var p = str.split(':').map(function(x) { return parseInt(x, 10); });
@@ -240,6 +238,12 @@ function parseAudioLength(str) {
   if (p.length === 1) return p[0] * 60000;
   if (p.length === 2) return (p[0] * 60 + p[1]) * 1000;
   return (p[0] * 3600 + p[1] * 60 + p[2]) * 1000;
+}
+function formatDuration(sec) {
+  sec = Math.round(sec);
+  var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  if (h > 0) return h + ':' + pad(m) + ':' + pad(s);
+  return m + ':' + pad(s);
 }
 function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
@@ -269,8 +273,9 @@ function parseTurbo(raw) {
   var re = /\((\d+):(\d{2})(?::(\d{2}))?\)/g;
   lines.forEach(function(line) {
     var t = line.trim(); if (!t) return;
-    var sm = /^Speaker\s*(\d+)\s*$/i.exec(t);
-    if (sm) { speaker = 'Speaker ' + sm[1]; open = null; return; }
+    var sm = /^([A-Za-z0-9_\-\s]+)\s*[:]?\s*$/.exec(t);
+    // If it looks like a speaker header line without timestamps
+    if (sm && !re.test(t)) { speaker = sm[1].trim(); open = null; return; }
     var last = 0, m; re.lastIndex = 0;
     while ((m = re.exec(t)) !== null) {
       var before = t.slice(last, m.index).trim();
@@ -294,23 +299,12 @@ function parseSRT(raw) {
     if (ti < 0) return;
     var ms = function(h, m, s, f) { return ((+h) * 3600 + (+m) * 60 + (+s)) * 1000 + parseInt((f + '00').slice(0, 3), 10); };
     var text = lines.slice(ti + 1).join(' ').trim();
-    var sp = /^(Speaker\s*\d+)\s*[:\-\u2013]\s*([\s\S]*)$/i.exec(text);
-    if (sp) { lastSpk = sp[1].replace(/\s+/, ' ').replace(/^speaker/i, 'Speaker'); text = sp[2].trim(); }
+    var sp = /^([A-Za-z0-9_\-\s]+)\s*[:\-\u2013]\s*([\s\S]*)$/i.exec(text);
+    if (sp) { lastSpk = sp[1].trim(); text = sp[2].trim(); }
     if (!text) return;
     segs.push({ speaker: lastSpk, start: ms(tm[1], tm[2], tm[3], tm[4]), end: ms(tm[5], tm[6], tm[7], tm[8]), text: text });
   });
   return { segments: segs, kind: 'srt' };
-}
-
-function autoSpeakerMap(tags) {
-  var counts = { Male: 0, Female: 0 }, map = {};
-  tags.forEach(function(t) { counts['Male']++; map[t] = { gender: 'Male', label: 'Male_' + counts['Male'], manual: false }; });
-  return map;
-}
-
-function relabel(map, tags) {
-  var counts = { Male: 0, Female: 0 };
-  tags.forEach(function(t) { var e = map[t]; counts[e.gender]++; if (!e.manual) e.label = e.gender + '_' + counts[e.gender]; });
 }
 
 function buildBlocks(parsed, cfg) {
@@ -327,37 +321,126 @@ function buildBlocks(parsed, cfg) {
   return segs;
 }
 
-function countWords(s) { return (s.match(/\S+/g) || []).length; }
-
 if (typeof document !== 'undefined' && document.getElementById) {
 (function() {
   var $ = function(id) { return document.getElementById(id); };
-  var speakerMap = null, speakerTags = [];
-  function toast(msg) { var t = $('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(function() { t.classList.remove('show'); }, 2200); }
+  var manualSpeakers = [];
 
-  $('btnGenTitle').addEventListener('click', function() { $('topic').value = generateSevenWordTitle($('raw').value); toast('7-word title generated'); });
-  $('btnDetect').addEventListener('click', function() {
-    var parsed = parseInput($('raw').value);
-    var tags = []; parsed.segments.forEach(function(s) { if (tags.indexOf(s.speaker) < 0) tags.push(s.speaker); });
-    if (!tags.length) { $('spkBox').innerHTML = '<div class="hint">No speakers found.</div>'; return; }
-    speakerMap = autoSpeakerMap(tags); speakerTags = tags;
-    var html = '<table class="spk"><thead><tr><th>Source tag</th><th>Gender</th><th>Label</th></tr></thead><tbody>';
-    speakerTags.forEach(function(t, i) { html += '<tr><td>' + esc(t) + '</td><td><select data-i="' + i + '" class="g"><option>Male</option><option>Female</option></select></td><td><input type="text" data-i="' + i + '" class="l" value="' + esc(speakerMap[t].label) + '"></td></tr>'; });
-    $('spkBox').innerHTML = html + '</tbody></table>';
-    toast('Speakers detected');
+  function toast(msg) { 
+    var t = $('toast'); 
+    t.textContent = msg; 
+    t.classList.add('show'); 
+    setTimeout(function() { t.classList.remove('show'); }, 2200); 
+  }
+
+  // Audio Auto-length handler
+  $('audioFile').addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var audioEl = $('player');
+    var objectUrl = URL.createObjectURL(file);
+    audioEl.src = objectUrl;
+    audioEl.onloadedmetadata = function() {
+      if (!isNaN(audioEl.duration)) {
+        $('audio').value = formatDuration(audioEl.duration);
+        toast('Audio length updated automatically: ' + $('audio').value);
+      }
+    };
+  });
+
+  // Manual Speaker Management UI
+  function renderSpeakers() {
+    if (!manualSpeakers.length) {
+      $('spkBox').innerHTML = '<div class="hint">No manual speakers added yet. Add them above or they will use input labels.</div>';
+      return;
+    }
+    var html = '<table class="spk"><thead><tr><th>Speaker Label</th><th>Action</th></tr></thead><tbody>';
+    manualSpeakers.forEach(function(spk, idx) {
+      html += '<tr><td><input type="text" value="' + esc(spk) + '" data-idx="' + idx + '" class="manual-spk-input"></td><td><button type="button" class="del-spk" data-idx="' + idx + '">Remove</button></td></tr>';
+    });
+    html += '</tbody></table>';
+    $('spkBox').innerHTML = html;
+
+    // Attach delete & edit listeners
+    document.querySelectorAll('.del-spk').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var idx = parseInt(this.getAttribute('data-idx'), 10);
+        manualSpeakers.splice(idx, 1);
+        renderSpeakers();
+      });
+    });
+    document.querySelectorAll('.manual-spk-input').forEach(function(input) {
+      input.addEventListener('input', function() {
+        var idx = parseInt(this.getAttribute('data-idx'), 10);
+        manualSpeakers[idx] = this.value;
+      });
+    });
+  }
+
+  $('btnAddSpeaker').addEventListener('click', function() {
+    var val = $('newSpeakerInput').value.trim();
+    if (!val) return;
+    manualSpeakers.push(val);
+    $('newSpeakerInput').value = '';
+    renderSpeakers();
+    toast('Speaker added');
+  });
+
+  $('btnGenTitle').addEventListener('click', function() { 
+    $('topic').value = generateSevenWordTitle($('raw').value); 
+    toast('7-word title generated'); 
+  });
+
+  $('btnSample').addEventListener('click', function() {
+    $('raw').value = "Speaker 1\n(0:00) Welcome everyone to today's strategy discussion.\nSpeaker 2\n(0:05) Thank you for having me on the call.";
+    toast('Sample loaded');
+  });
+
+  $('btnClear').addEventListener('click', function() {
+    $('raw').value = '';
+    toast('Cleared input');
+  });
+
+  // Plain Text Copy Fix
+  $('btnCopy').addEventListener('click', function() {
+    var outText = $('out').value;
+    if (!outText.trim()) {
+      toast('No transcript output to copy');
+      return;
+    }
+    navigator.clipboard.writeText(outText).then(function() {
+      toast('Copied plain text to clipboard!');
+    }).catch(function() {
+      // Fallback
+      $('out').select();
+      document.execCommand('copy');
+      toast('Copied plain text!');
+    });
   });
 
   $('btnGo').addEventListener('click', function() {
     if (!$('raw').value.trim()) { toast('Paste raw transcript first'); return; }
     if (!$('topic').value.trim()) $('topic').value = generateSevenWordTitle($('raw').value);
+    
     var parsed = parseInput($('raw').value);
     var cfg = { randomMs: $('oRandomMs').checked, continuous: $('oContinuous').checked, audioMs: parseAudioLength($('audio').value) };
     var blocks = buildBlocks(parsed, cfg);
+
     var lines = [
-      'Transcription Job: ' + $('topic').value, 'Client: ' + $('client').value,
-      'Transcribed By: ' + $('by').value, 'Date: ' + $('date').value, 'Audio Length: ' + ($('audio').value || '5:08'), ''
+      'Transcription Job: ' + $('topic').value, 
+      'Client: ' + $('client').value,
+      'Transcribed By: ' + $('by').value, 
+      'Date: ' + $('date').value, 
+      'Audio Length: ' + ($('audio').value || '5:08'), 
+      ''
     ];
-    blocks.forEach(function(b) { lines.push('Male_1:\n[' + fmtTs(b.start) + ' --> ' + fmtTs(b.end) + ']\n' + b.text + '\n'); });
+
+    blocks.forEach(function(b) {
+      // Preserve exact speaker input
+      var speakerLabel = b.speaker;
+      lines.push(speakerLabel + ':\n[' + fmtTs(b.start) + ' --> ' + fmtTs(b.end) + ']\n' + b.text + '\n');
+    });
+
     lines.push('[END OF RECORDING --> ' + fmtTs(blocks[blocks.length - 1].end) + ']');
     $('out').value = lines.join('\n');
     toast('Transcript generated!');
@@ -366,5 +449,4 @@ if (typeof document !== 'undefined' && document.getElementById) {
 }
 </script>
 </body>
-          </html>
-        
+</html>
